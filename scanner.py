@@ -1,16 +1,39 @@
 import requests
 import base64
 import re
+import xml.etree.ElementTree as ElementTree
 
-job_request = base64.b64decode("PHNjYW46U2NhbkpvYiB4bWxuczpzY2FuPSJodHRwOi8vd3d3LmhwLmNvbS9zY2hlbWFzL2ltYWdpbmcvY29uL2NueC9zY2FuLzIwMDgvMDgvMTkiIHhtbG5zOmRkPSJodHRwOi8vd3d3LmhwLmNvbS9zY2hlbWFzL2ltYWdpbmcvY29uL2RpY3Rpb25hcmllcy8xLjAvIj48c2NhbjpYUmVzb2x1dGlvbj4zMDA8L3NjYW46WFJlc29sdXRpb24+PHNjYW46WVJlc29sdXRpb24+MzAwPC9zY2FuOllSZXNvbHV0aW9uPjxzY2FuOlhTdGFydD4wPC9zY2FuOlhTdGFydD48c2NhbjpZU3RhcnQ+MDwvc2NhbjpZU3RhcnQ+PHNjYW46V2lkdGg+MjU1MDwvc2NhbjpXaWR0aD48c2NhbjpIZWlnaHQ+MzMwMDwvc2NhbjpIZWlnaHQ+PHNjYW46Rm9ybWF0PlBkZjwvc2NhbjpGb3JtYXQ+PHNjYW46Q29tcHJlc3Npb25RRmFjdG9yPjI1PC9zY2FuOkNvbXByZXNzaW9uUUZhY3Rvcj48c2NhbjpDb2xvclNwYWNlPkdyYXk8L3NjYW46Q29sb3JTcGFjZT48c2NhbjpCaXREZXB0aD44PC9zY2FuOkJpdERlcHRoPjxzY2FuOklu")
+job_request = """<scan:ScanJob xmlns:scan="http://www.hp.com/schemas/imaging/con/cnx/scan/2008/08/19" xmlns:dd="http://www.hp.com/schemas/imaging/con/dictionaries/1.0/">
+	<scan:XResolution>300</scan:XResolution>
+	<scan:YResolution>300</scan:YResolution>
+	<scan:XStart>0</scan:XStart>
+	<scan:YStart>0</scan:YStart>
+	<scan:Width>2550</scan:Width>
+	<scan:Height>3300</scan:Height>
+	<scan:Format>Pdf</scan:Format>
+	<scan:CompressionQFactor>25</scan:CompressionQFactor>
+	<scan:ColorSpace>Gray</scan:ColorSpace>
+	<scan:BitDepth>8</scan:BitDepth>
+	<scan:InputSource>Platen</scan:InputSource>
+	<scan:GrayRendering>NTSC</scan:GrayRendering>
+	<scan:ToneMap>
+		<scan:Gamma>1000</scan:Gamma>
+		<scan:Brightness>1000</scan:Brightness>
+		<scan:Contrast>1000</scan:Contrast>
+		<scan:Highlite>179</scan:Highlite>
+		<scan:Shadow>25</scan:Shadow>
+	</scan:ToneMap>
+	<scan:ContentType>Document</scan:ContentType>
+</scan:ScanJob>"""
 
 def status(ip='10.10.2.5'):
 	url = "http://{0}/Scan/Status".format(ip)
 	r = requests.get(url)
 	try:
 		t = ElementTree.fromstring(r.content)
-		return (t.getchildren()[0] == 'Idle')
-	except:
+		return (t.getchildren()[0].text == 'Idle')
+	except Exception as e:
+		print e
 		return False
 
 def recent_job(ip='10.10.2.5'):
@@ -21,13 +44,15 @@ def recent_job(ip='10.10.2.5'):
 		elements = [i.getchildren() for i in t.getchildren()]
 		job = 0
 		for i in elements:
+			print i[0].text, i[2].text
 			if i[2].text != "Completed":
 				numbers = re.findall("\d+", i[0].text)
 				if len(numbers):
 					if numbers[0] > job:
-						job = num
-		return num
-	except:
+						job = numbers[0]
+		return job
+	except Exception as e:
+		print e
 		return 0
 
 def start_job(ip='10.10.2.5'):
@@ -38,10 +63,12 @@ def start_job(ip='10.10.2.5'):
 
 def scan(ip='10.10.2.5',file='scan.pdf'):
 	job = start_job(ip)
+	print job
 	url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
 	r = requests.get(url)
 	if r.status_code == 200:
 		open(file,'w').write(r.content)
 
 if __name__ == "__main__":
+	print status()
 	scan()
