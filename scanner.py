@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 
+"""pyScanner.
+
+Usage:
+	scanner.py [<ip>]
+	scanner.py (-h | --help | --version)
+
+Options:
+	-h --help   Show this screen.
+	--version   Show version.
+	--ip        IP Address of the printer
+"""
+
+from docopt import docopt
+
 import xml.etree.ElementTree as ElementTree
 import requests
 import base64
@@ -30,7 +44,7 @@ job_request = """
 </scan:ScanJob>
 """
 
-def status(ip='10.10.2.5'):
+def status(ip):
 	url = "http://{0}/Scan/Status".format(ip)
 	r = requests.get(url)
 	try:
@@ -39,7 +53,7 @@ def status(ip='10.10.2.5'):
 	except Exception as e:
 		return "Unknown"
 
-def recent_job(ip='10.10.2.5'):
+def recent_job(ip):
 	url = "http://{0}/Jobs/JobList".format(ip)
 	r = requests.get(url)
 	try:
@@ -56,7 +70,7 @@ def recent_job(ip='10.10.2.5'):
 	except Exception as e:
 		return 0
 
-def start_job(ip='10.10.2.5'):
+def start_job(ip):
 	url = "http://{0}/Scan/Jobs".format(ip)
 	r = requests.post(url, data=job_request)
 	if r.status_code == 201:
@@ -65,20 +79,23 @@ def start_job(ip='10.10.2.5'):
 	else:
 		return 0
 
-def scan(ip='10.10.2.5',file='scan.pdf'):
+def scan(ip, file='scan.pdf'):
 	job = start_job(ip)
 	if job:
 		url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
-		print "Scanning..."
+		print("Scanning...")
 		r = requests.get(url)
 		if r.status_code == 200:
 			open(file,'w').write(r.content)
+		print("Saved pdf to {0}".format(file))
 	else:
 		print "Unknown job ID {0}".format(job)
 
 if __name__ == "__main__":
-	stat = status()
+	arguments = docopt(__doc__, version='HP Photosmart 6510 B211a WebScan')
+	ip = arguments['<ip>'] if arguments['<ip>'] else '10.10.2.5'
+	stat = status(ip)
 	if stat == "Idle":
-		scan()
+		scan(ip)
 	else:
 		print "Sorry, scanner status is '{0}'".format(stat)
