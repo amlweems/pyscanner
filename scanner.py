@@ -1,9 +1,12 @@
+#!/usr/bin/env python
+
+import xml.etree.ElementTree as ElementTree
 import requests
 import base64
 import re
-import xml.etree.ElementTree as ElementTree
 
-job_request = """<scan:ScanJob xmlns:scan="http://www.hp.com/schemas/imaging/con/cnx/scan/2008/08/19" xmlns:dd="http://www.hp.com/schemas/imaging/con/dictionaries/1.0/">
+job_request = """
+<scan:ScanJob xmlns:scan="http://www.hp.com/schemas/imaging/con/cnx/scan/2008/08/19" xmlns:dd="http://www.hp.com/schemas/imaging/con/dictionaries/1.0/">
 	<scan:XResolution>300</scan:XResolution>
 	<scan:YResolution>300</scan:YResolution>
 	<scan:XStart>0</scan:XStart>
@@ -24,17 +27,17 @@ job_request = """<scan:ScanJob xmlns:scan="http://www.hp.com/schemas/imaging/con
 		<scan:Shadow>25</scan:Shadow>
 	</scan:ToneMap>
 	<scan:ContentType>Document</scan:ContentType>
-</scan:ScanJob>"""
+</scan:ScanJob>
+"""
 
 def status(ip='10.10.2.5'):
 	url = "http://{0}/Scan/Status".format(ip)
 	r = requests.get(url)
 	try:
 		t = ElementTree.fromstring(r.content)
-		return (t.getchildren()[0].text == 'Idle')
+		return t.getchildren()[0].text
 	except Exception as e:
-		print e
-		return False
+		return "Unknown"
 
 def recent_job(ip='10.10.2.5'):
 	url = "http://{0}/Jobs/JobList".format(ip)
@@ -44,7 +47,6 @@ def recent_job(ip='10.10.2.5'):
 		elements = [i.getchildren() for i in t.getchildren()]
 		job = 0
 		for i in elements:
-			print i[0].text, i[2].text
 			if i[2].text != "Completed":
 				numbers = re.findall("\d+", i[0].text)
 				if len(numbers):
@@ -52,23 +54,31 @@ def recent_job(ip='10.10.2.5'):
 						job = numbers[0]
 		return job
 	except Exception as e:
-		print e
 		return 0
 
 def start_job(ip='10.10.2.5'):
 	url = "http://{0}/Scan/Jobs".format(ip)
 	r = requests.post(url, data=job_request)
-	job = recent_job(ip)
-	return job
+	if r.status_code == 201:
+		job = recent_job(ip)
+		return job
+	else:
+		return 0
 
 def scan(ip='10.10.2.5',file='scan.pdf'):
 	job = start_job(ip)
-	print job
-	url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
-	r = requests.get(url)
-	if r.status_code == 200:
-		open(file,'w').write(r.content)
+	if job:
+		url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
+		print "Scanning..."
+		r = requests.get(url)
+		if r.status_code == 200:
+			open(file,'w').write(r.content)
+	else:
+		print "Unknown job ID {0}".format(job)
 
 if __name__ == "__main__":
-	print status()
-	scan()
+	stat = status()
+	if stat == "Idle":
+		scan()
+	else:
+		print "Sorry, scanner status is '{0}'".format(stat)
