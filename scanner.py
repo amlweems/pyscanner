@@ -17,6 +17,7 @@ from docopt import docopt
 import xml.etree.ElementTree as ElementTree
 import requests
 import base64
+import sys
 import re
 
 job_request = """
@@ -88,14 +89,18 @@ def scan(ip, file='scan.pdf'):
 		if r.status_code == 200:
 			open(file,'w').write(r.content)
 		print("Saved pdf to {0}".format(file))
+		return 0
 	else:
 		print "Unknown job ID {0}".format(job)
+		return 2
 
 if __name__ == "__main__":
 	arguments = docopt(__doc__, version='HP Photosmart 6510 B211a WebScan')
 	ip = arguments['<ip>'] if arguments['<ip>'] else '10.10.2.5'
 	stat = status(ip)
 	if stat == "Idle":
-		scan(ip)
+		exit_code = scan(ip)
+		sys.exit(exit_code)
 	else:
 		print "Sorry, scanner status is '{0}'".format(stat)
+		sys.exit(1)
