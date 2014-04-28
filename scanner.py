@@ -52,7 +52,7 @@ def status(ip):
 		t = ElementTree.fromstring(r.content)
 		return t.getchildren()[0].text
 	except Exception as e:
-		return "Unknown"
+		raise Exception("Could not parse XML")
 
 def recent_job(ip):
 	url = "http://{0}/Jobs/JobList".format(ip)
@@ -62,14 +62,14 @@ def recent_job(ip):
 		elements = [i.getchildren() for i in t.getchildren()]
 		job = 0
 		for i in elements:
-			if i[2].text != "Completed":
-				numbers = re.findall("\d+", i[0].text)
-				if len(numbers):
-					if numbers[0] > job:
-						job = numbers[0]
+			if i[2].text == "Completed": continue
+			numbers = [int(n) for n in re.findall("\d+", i[0].text)]
+			if numbers:
+				if numbers[0] > job:
+					job = numbers[0]
 		return job
 	except Exception as e:
-		return 0
+		raise Exception("Job Not Found")
 
 def start_job(ip):
 	url = "http://{0}/Scan/Jobs".format(ip)
@@ -78,21 +78,18 @@ def start_job(ip):
 		job = recent_job(ip)
 		return job
 	else:
-		return 0
+		raise Exception("Job Not Found")
 
 def scan(ip, file='scan.pdf'):
 	job = start_job(ip)
-	if job:
-		url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
-		print("Scanning...")
-		r = requests.get(url)
-		if r.status_code == 200:
-			open(file,'w').write(r.content)
+	url = "http://{0}/Scan/Jobs/{1}/Pages/1".format(ip, job)
+	print("Scanning...")
+	r = requests.get(url)
+	if r.status_code == 200:
+		open(file, 'wb').write(r.content)
 		print("Saved pdf to {0}".format(file))
-		return 0
 	else:
-		print "Unknown job ID {0}".format(job)
-		return 2
+		print("Error: Response Code {}".format(r.status_code))
 
 if __name__ == "__main__":
 	arguments = docopt(__doc__, version='HP Photosmart 6510 B211a WebScan')
@@ -100,7 +97,6 @@ if __name__ == "__main__":
 	stat = status(ip)
 	if stat == "Idle":
 		exit_code = scan(ip)
-		sys.exit(exit_code)
 	else:
-		print "Sorry, scanner status is '{0}'".format(stat)
+		print("Sorry, scanner status is '{0}'".format(stat))
 		sys.exit(1)
